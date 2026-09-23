@@ -14,6 +14,7 @@ import (
 	"github.com/Golukpal/ticket-system/internal/config"
 	"github.com/Golukpal/ticket-system/internal/database"
 	"github.com/Golukpal/ticket-system/internal/handler"
+	"github.com/Golukpal/ticket-system/internal/middleware"
 	"github.com/Golukpal/ticket-system/internal/repository"
 	"github.com/Golukpal/ticket-system/internal/routes"
 	"github.com/Golukpal/ticket-system/internal/service"
@@ -38,10 +39,19 @@ func main() {
 		log.Fatalf("JWT setup failed: %v", err)
 	}
 
+	authMiddleware := middleware.NewAuthMiddleware(
+		cfg.JWTSecret,
+	)
+
 	userRepository := repository.NewUserRepository(dbPool)
+	ticketRepository := repository.NewTicketRepository(dbPool)
 
 	authService := service.NewAuthService(
 		userRepository,
+	)
+
+	ticketService := service.NewTicketService(
+		ticketRepository,
 	)
 
 	authHandler := handler.NewAuthHandler(
@@ -49,7 +59,15 @@ func main() {
 		jwtService,
 	)
 
-	router := routes.Setup(authHandler)
+	ticketHandler := handler.NewTicketHandler(
+		ticketService,
+	)
+
+	router := routes.Setup(
+		authHandler,
+		ticketHandler,
+		authMiddleware,
+	)
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
